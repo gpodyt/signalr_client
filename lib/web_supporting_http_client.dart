@@ -13,6 +13,7 @@ class WebSupportingHttpClient extends SignalRHttpClient {
 
   final Logger? _logger;
   final OnHttpClientCreateCallback? _httpClientCreateCallback;
+  final MessageHeaders cookieHeaders = MessageHeaders();
 
   // Methods
 
@@ -67,6 +68,7 @@ class WebSupportingHttpClient extends SignalRHttpClient {
               : 'text/plain;charset=UTF-8');
 
       headers.addMessageHeaders(request.headers);
+      headers.addMessageHeaders(cookieHeaders);
 
       _logger?.finest(
           "HTTP send: url '${request.url}', method: '${request.method}' content: '${request.content}' content length = '${(request.content as String).length}' headers: '$headers'");
@@ -74,6 +76,7 @@ class WebSupportingHttpClient extends SignalRHttpClient {
       final httpRespFuture = await Future.any(
           [_sendHttpRequest(httpClient, request, uri, headers), abortFuture]);
       final httpResp = httpRespFuture as Response;
+      updateCookie(httpResp);
 
       if (request.abortSignal != null) {
         request.abortSignal!.onabort = null;
@@ -136,5 +139,13 @@ class WebSupportingHttpClient extends SignalRHttpClient {
     }
 
     return httpResponse;
+  }
+
+  void updateCookie(Response response) {
+    String? rawCookie = response.headers['set-cookie'];
+    if (rawCookie != null) {
+      int index = rawCookie.indexOf(';');
+      cookieHeaders.setHeaderValue('cookies', (index == -1) ? rawCookie : rawCookie.substring(0, index));
+    }
   }
 }
