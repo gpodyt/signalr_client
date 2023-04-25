@@ -145,7 +145,7 @@ class WebSupportingHttpClient extends SignalRHttpClient {
     String? rawCookie = response.headers['set-cookie'];
     if (rawCookie != null) {
       int index = rawCookie.indexOf(';');
-      cookieHeaders.setHeaderValue('cookies', (index == -1) ? rawCookie : rawCookie.substring(0, index));
+      cookieHeaders.setHeaderValue('cookie', (index == -1) ? rawCookie : rawCookie.substring(0, index));
     }
   }
 }
