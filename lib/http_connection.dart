@@ -458,7 +458,7 @@ class HttpConnection implements IConnection {
             "Unexpected status code returned from negotiate ${response.statusCode}"));
       }
 
-      if (response.content is! String || response.content is! Map<String, dynamic>) {
+      if (response.content is! String && response.content is! Map<String, dynamic>) {
         return Future.error(
             GeneralError("Negotation response content must be a json."));
       }
