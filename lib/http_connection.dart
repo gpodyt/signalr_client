@@ -199,6 +199,7 @@ class HttpConnection implements IConnection {
   static final maxRedirects = 100;
 
   ConnectionState? _connectionState;
+
   // connectionStarted is tracked independently from connectionState, so we can check if the
   // connection ever did successfully transition from connecting to connected before disconnecting.
   late bool _connectionStarted;
@@ -457,13 +458,15 @@ class HttpConnection implements IConnection {
             "Unexpected status code returned from negotiate ${response.statusCode}"));
       }
 
-      if (!(response.content is String)) {
+      if (response.content is! String || response.content is! Map<String, dynamic>) {
         return Future.error(
             GeneralError("Negotation response content must be a json."));
       }
 
-      var negotiateResponse =
-          NegotiateResponse.fromJson(json.decode(response.content as String));
+      var negotiateResponse = response.content is String
+          ? NegotiateResponse.fromJson(json.decode(response.content as String))
+          : NegotiateResponse.fromJson(
+              response.content as Map<String, dynamic>);
       if (negotiateResponse.negotiateVersion == null ||
           negotiateResponse.negotiateVersion! < 1) {
         // Negotiate version 0 doesn't use connectionToken
