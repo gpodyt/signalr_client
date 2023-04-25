@@ -9,7 +9,7 @@ class HttpConnectionOptions {
   // Properties
 
   /// An SignalRHttpClient that will be used to make HTTP requests.
-  SignalRHttpClient? httpClient;
+  SignalRHttpClient httpClient;
 
   /// An HttpTransportType or ITransport value specifying the transport to use for the connection
   /// If transport is null and the server supports all transport protocols than HttpTransportType.WebSockets is used.
@@ -44,7 +44,7 @@ class HttpConnectionOptions {
 
   // Methods
   HttpConnectionOptions(
-      {SignalRHttpClient? httpClient,
+      {required SignalRHttpClient httpClient,
       Object? transport,
       Logger? logger,
       AccessTokenFactory? accessTokenFactory,

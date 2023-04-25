@@ -17,7 +17,7 @@ class HubConnectionBuilder {
 
   IHubProtocol? _protocol;
 
-  HttpConnectionOptions? _httpConnectionOptions;
+  late HttpConnectionOptions _httpConnectionOptions;
 
   String? _url;
 
@@ -46,17 +46,13 @@ class HubConnectionBuilder {
   /// Returns the builder instance, for chaining.
   ///
   HubConnectionBuilder withUrl(String url,
-      {HttpConnectionOptions? options, HttpTransportType? transportType}) {
+      {required HttpConnectionOptions options, HttpTransportType? transportType}) {
     assert(!isStringEmpty(url));
     assert(!(options != null && transportType != null));
 
     _url = url;
 
-    if (options != null) {
-      _httpConnectionOptions = options;
-    } else {
-      _httpConnectionOptions = HttpConnectionOptions(transport: transportType);
-    }
+    _httpConnectionOptions = options;
 
     return this;
   }
@@ -92,8 +88,7 @@ class HubConnectionBuilder {
   HubConnection build() {
     // If httpConnectionOptions has a logger, use it. Otherwise, override it with the one
     // provided to configureLogger
-    final httpConnectionOptions =
-        _httpConnectionOptions ?? HttpConnectionOptions();
+    final httpConnectionOptions = _httpConnectionOptions;
 
     // Now create the connection
     if (isStringEmpty(_url)) {

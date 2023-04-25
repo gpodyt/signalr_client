@@ -1,25 +1,26 @@
 import 'dart:async';
-import 'package:http/http.dart';
+import 'package:dio/dio.dart';
 import 'package:signalr_netcore/ihub_protocol.dart';
 import 'errors.dart';
 import 'signalr_http_client.dart';
 import 'utils.dart';
 import 'package:logging/logging.dart';
 
-typedef OnHttpClientCreateCallback = void Function(Client httpClient);
+typedef OnHttpClientCreateCallback = void Function(Dio httpClient);
 
 class WebSupportingHttpClient extends SignalRHttpClient {
   // Properties
 
+  final Dio _httpClient;
   final Logger? _logger;
   final OnHttpClientCreateCallback? _httpClientCreateCallback;
-  final MessageHeaders cookieHeaders = MessageHeaders();
 
   // Methods
 
-  WebSupportingHttpClient(Logger? logger,
+  WebSupportingHttpClient(Dio httpClient, Logger? logger,
       {OnHttpClientCreateCallback? httpClientCreateCallback})
-      : this._logger = logger,
+      : this._httpClient = httpClient,
+        this._logger = logger,
         this._httpClientCreateCallback = httpClientCreateCallback;
 
   Future<SignalRHttpResponse> send(SignalRHttpRequest request) {
@@ -39,10 +40,9 @@ class WebSupportingHttpClient extends SignalRHttpClient {
     return Future<SignalRHttpResponse>(() async {
       final uri = Uri.parse(request.url!);
 
-      final httpClient = Client();
-      if (_httpClientCreateCallback != null) {
-        _httpClientCreateCallback!(httpClient);
-      }
+      // if (_httpClientCreateCallback != null) {
+      //   _httpClientCreateCallback!(httpClient);
+      // }
 
       final abortFuture = Future<void>(() {
         final completer = Completer<void>();
@@ -68,29 +68,27 @@ class WebSupportingHttpClient extends SignalRHttpClient {
               : 'text/plain;charset=UTF-8');
 
       headers.addMessageHeaders(request.headers);
-      headers.addMessageHeaders(cookieHeaders);
 
       _logger?.finest(
           "HTTP send: url '${request.url}', method: '${request.method}' content: '${request.content}' content length = '${(request.content as String).length}' headers: '$headers'");
 
       final httpRespFuture = await Future.any(
-          [_sendHttpRequest(httpClient, request, uri, headers), abortFuture]);
+          [_sendHttpRequest(_httpClient, request, uri, headers), abortFuture]);
       final httpResp = httpRespFuture as Response;
-      updateCookie(httpResp);
 
       if (request.abortSignal != null) {
         request.abortSignal!.onabort = null;
       }
 
-      if ((httpResp.statusCode >= 200) && (httpResp.statusCode < 300)) {
+      if ((httpResp.statusCode! >= 200) && (httpResp.statusCode! < 300)) {
         Object content;
-        final contentTypeHeader = httpResp.headers['content-type'];
+        final contentTypeHeader = httpResp.headers.value('content-type');
         final isJsonContent = contentTypeHeader == null ||
             contentTypeHeader.startsWith('application/json');
         if (isJsonContent) {
-          content = httpResp.body;
+          content = httpResp.data;
         } else {
-          content = httpResp.body;
+          content = httpResp.data;
           // When using SSE and the uri has an 'id' query parameter the response is not evaluated, otherwise it is an error.
           if (isStringEmpty(uri.queryParameters['id'])) {
             throw ArgumentError(
@@ -98,38 +96,40 @@ class WebSupportingHttpClient extends SignalRHttpClient {
           }
         }
 
-        return SignalRHttpResponse(httpResp.statusCode,
-            statusText: httpResp.reasonPhrase, content: content);
+        return SignalRHttpResponse(httpResp.statusCode!,
+            statusText: httpResp.statusMessage, content: content);
       } else {
-        throw HttpError(httpResp.reasonPhrase, httpResp.statusCode);
+        throw HttpError(httpResp.statusMessage, httpResp.statusCode!);
       }
     });
   }
 
   Future<Response> _sendHttpRequest(
-    Client httpClient,
+    Dio httpClient,
     SignalRHttpRequest request,
     Uri uri,
     MessageHeaders headers,
   ) {
     Future<Response> httpResponse;
-
+    Options options = Options(
+      headers: headers.asMap
+    );
     switch (request.method!.toLowerCase()) {
       case 'post':
         httpResponse =
-            httpClient.post(uri, body: request.content, headers: headers.asMap);
+            httpClient.post(uri.toString(), data: request.content, options: options);
         break;
       case 'put':
         httpResponse =
-            httpClient.put(uri, body: request.content, headers: headers.asMap);
+            httpClient.put(uri.toString(), data: request.content, options: options);
         break;
       case 'delete':
-        httpResponse = httpClient.delete(uri,
-            body: request.content, headers: headers.asMap);
+        httpResponse = httpClient.delete(uri.toString(),
+            data: request.content, options: options);
         break;
       case 'get':
       default:
-        httpResponse = httpClient.get(uri, headers: headers.asMap);
+        httpResponse = httpClient.get(uri.toString(), options: options);
     }
 
     final hasTimeout = (request.timeout != null) && (0 < request.timeout!);
@@ -139,13 +139,5 @@ class WebSupportingHttpClient extends SignalRHttpClient {
     }
 
     return httpResponse;
-  }
-
-  void updateCookie(Response response) {
-    String? rawCookie = response.headers['set-cookie'];
-    if (rawCookie != null) {
-      int index = rawCookie.indexOf(';');
-      cookieHeaders.setHeaderValue('cookie', (index == -1) ? rawCookie : rawCookie.substring(0, index));
-    }
   }
 }

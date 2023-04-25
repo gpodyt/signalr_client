@@ -232,7 +232,7 @@ class HttpConnection implements IConnection {
     baseUrl = url;
 
     _options = options;
-    _httpClient = options.httpClient ?? WebSupportingHttpClient(_logger);
+    _httpClient = options.httpClient;
     _connectionState = ConnectionState.Disconnected;
     _connectionStarted = false;
   }
