@@ -16,6 +16,9 @@ dependencies:
   sse_channel: ^0.1.1
   message_pack_dart: ^2.0.1
   http: ^1.1.0
+  cookie_jar: ^4.0.9
+  dio: ^5.9.2
+  dio_cookie_manager: ^3.4.0
 
 dev_dependencies:
   collection: ^1.15.0
