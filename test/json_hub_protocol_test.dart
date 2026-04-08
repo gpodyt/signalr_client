@@ -1,7 +1,7 @@
 import 'package:signalr_netcore/text_message_format.dart';
 import 'package:signalr_netcore/ihub_protocol.dart';
 import 'package:signalr_netcore/json_hub_protocol.dart';
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:collection/collection.dart';
 import 'package:logging/logging.dart';
 
@@ -124,11 +124,11 @@ void main() {
       ],
       [
         TextMessageFormat.write(
-            '{"type":2, "invocationId": "abc", "headers": {}, "item": 1648116122951}'),
+            '{"type":2, "invocationId": "abc", "headers": {}, "item": 1648135922951}'),
         StreamItemMessage(
             headers: MessageHeaders(),
             invocationId: "abc",
-            item: DateTime.parse('2022-03-24T15:32:02.951')
+            item: DateTime.parse('2022-03-24T15:32:02.951Z')
                 .millisecondsSinceEpoch)
       ],
       [
@@ -148,9 +148,8 @@ void main() {
         final expectedMessage = e[1];
         final parsedMessages =
             protocol.parseMessages(payload, Logger("JsonHubProtocol"));
-        final equalityCheck =
-            deepEq(parsedMessages.toString(), ([expectedMessage]).toString());
-        expect(equalityCheck, true);
+
+        expect(parsedMessages.toString(), [expectedMessage].toString());
       });
     });
   });

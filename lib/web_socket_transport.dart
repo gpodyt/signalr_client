@@ -1,7 +1,11 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
+import 'dart:io' as io;
 
 import 'package:logging/logging.dart';
+import 'package:signalr_netcore/ihub_protocol.dart';
+import 'package:signalr_netcore/signalr_client.dart';
+import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'errors.dart';
@@ -11,11 +15,12 @@ import 'utils.dart';
 class WebSocketTransport implements ITransport {
   // Properties
 
-  Logger? _logger;
-  AccessTokenFactory? _accessTokenFactory;
-  bool _logMessageContent;
+  final Logger? _logger;
+  final AccessTokenFactory? _accessTokenFactory;
+  final bool _logMessageContent;
   WebSocketChannel? _webSocket;
   StreamSubscription<Object?>? _webSocketListenSub;
+  MessageHeaders? _headers;
 
   @override
   OnClose? onClose;
@@ -25,10 +30,11 @@ class WebSocketTransport implements ITransport {
 
   // Methods
   WebSocketTransport(AccessTokenFactory? accessTokenFactory, Logger? logger,
-      bool logMessageContent)
-      : this._accessTokenFactory = accessTokenFactory,
-        this._logger = logger,
-        this._logMessageContent = logMessageContent;
+      bool logMessageContent, MessageHeaders? headers)
+      : _accessTokenFactory = accessTokenFactory,
+        _logger = logger,
+        _logMessageContent = logMessageContent,
+        _headers = headers;
 
   @override
   Future<void> connect(String? url, TransferFormat transferFormat) async {
@@ -36,13 +42,19 @@ class WebSocketTransport implements ITransport {
 
     _logger?.finest("(WebSockets transport) Connecting");
 
+    Map<String, String> headers = _headers?.asMap ?? {};
+
     if (_accessTokenFactory != null) {
       final token = await _accessTokenFactory!();
       if (!isStringEmpty(token)) {
-        final encodedToken = Uri.encodeComponent(token);
-        url = url! +
-            (url.indexOf("?") < 0 ? "?" : "&") +
-            "access_token=$encodedToken";
+        if (kIsWeb) {
+          final encodedToken = Uri.encodeComponent(token);
+          url = url! +
+              (url.indexOf("?") < 0 ? "?" : "&") +
+              "access_token=$encodedToken";
+        } else {
+          headers['Authorization'] = 'Bearer $token';
+        }
       }
     }
 
@@ -50,54 +62,67 @@ class WebSocketTransport implements ITransport {
     var opened = false;
     url = url!.replaceFirst('http', 'ws');
     _logger?.finest("WebSocket try connecting to '$url'.");
-    _webSocket = WebSocketChannel.connect(Uri.parse(url));
-    opened = true;
-    if (!websocketCompleter.isCompleted) websocketCompleter.complete();
-    _logger?.info("WebSocket connected to '$url'.");
-    _webSocketListenSub = _webSocket!.stream.listen(
-      // onData
-      (Object? message) {
-        if (_logMessageContent && message is String) {
-          _logger?.finest(
-              "(WebSockets transport) data received. message ${getDataDetail(message, _logMessageContent)}.");
-        } else {
-          _logger?.finest("(WebSockets transport) data received.");
-        }
-        if (onReceive != null) {
-          try {
-            onReceive!(message);
-          } catch (error) {
-            _logger?.severe(
-                "(WebSockets transport) error calling onReceive, error: $error");
-            _close();
-          }
-        }
-      },
 
-      // onError
-      onError: (Object? error) {
-        var e = error != null ? error : "Unknown websocket error";
-        if (!websocketCompleter.isCompleted) {
-          websocketCompleter.completeError(e);
-        }
-      },
-
-      // onDone
-      onDone: () {
-        // Don't call close handler if connection was never established
-        // We'll reject the connect call instead
-        if (opened) {
-          if (onClose != null) {
-            onClose!();
+    try {
+      if (kIsWeb) {
+        _webSocket = WebSocketChannel.connect(Uri.parse(url));
+      } else {
+        final webSocket = await io.WebSocket.connect(url, headers: headers);
+        _webSocket = IOWebSocketChannel(webSocket);
+      }
+      opened = true;
+      if (!websocketCompleter.isCompleted) websocketCompleter.complete();
+      _logger?.info("WebSocket connected to '$url'.");
+      _webSocketListenSub = _webSocket!.stream.listen(
+        // onData
+        (Object? message) {
+          if (_logMessageContent && message is String) {
+            _logger?.finest(
+                "(WebSockets transport) data received. message ${getDataDetail(message, _logMessageContent)}.");
+          } else {
+            _logger?.finest("(WebSockets transport) data received.");
           }
-        } else {
+          if (onReceive != null) {
+            try {
+              onReceive!(message);
+            } catch (error) {
+              _logger?.severe(
+                  "(WebSockets transport) error calling onReceive, error: $error");
+              _close();
+            }
+          }
+        },
+
+        // onError
+        onError: (Object? error) {
+          var e = error != null ? error : "Unknown websocket error";
           if (!websocketCompleter.isCompleted) {
-            websocketCompleter
-                .completeError("There was an error with the transport.");
+            websocketCompleter.completeError(e);
           }
-        }
-      },
-    );
+        },
+
+        // onDone
+        onDone: () {
+          // Don't call close handler if connection was never established
+          // We'll reject the connect call instead
+          if (opened) {
+            if (onClose != null) {
+              onClose!();
+            }
+          } else {
+            if (!websocketCompleter.isCompleted) {
+              websocketCompleter
+                  .completeError("There was an error with the transport.");
+            }
+          }
+        },
+      );
+    } catch (e) {
+      if (!websocketCompleter.isCompleted) {
+        websocketCompleter.completeError(e);
+      }
+      _logger?.severe("WebSocket connection to '$url' failed: $e");
+    }
 
     return websocketCompleter.future;
   }

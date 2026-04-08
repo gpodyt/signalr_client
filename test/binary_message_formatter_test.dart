@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:signalr_netcore/binary_message_format.dart';
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:collection/collection.dart';
 
 Function deepEq = const DeepCollectionEquality().equals;

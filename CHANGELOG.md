@@ -1,3 +1,45 @@
+## [1.4.4]
+* Adds message headers to the web socket transport
+
+## [1.4.3]  
+* Fixed WebSocket authorization issue on Web platform.
+
+## [1.4.2]
+* Added support for client-to-server streaming with controllable stream lifecycle via StreamController, enabling client-side abortion of streams. Preserved existing stream() method for backward compatibility.
+
+## [1.4.1]
+
+* Add back web support that was removed previously in #93
+   - Websocket on browser doesn't support passing headers, instead the token must be passed via query string in the url
+
+## [1.4.0]
+
+* Fix websocket auth issues
+
+## [1.3.9]
+
+* Improve code quality
+
+## [1.3.8]
+
+* Upgrade sse_channel library to version 0.1.1
+
+## [1.3.7]
+
+* Update dependencies using http: ^1.1.0
+  
+## [1.3.6]
+
+* Emit events once the HubConnectionState changes
+
+## [1.3.5]
+
+* Upgrade packages and remove warnings
+  
+## [1.3.4]
+
+* Fix the disconnect exception caused by send message error
+  
 ## [1.3.3]
 
 * Allowing invocation arguments to be null

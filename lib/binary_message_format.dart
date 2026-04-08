@@ -54,7 +54,7 @@ class BinaryMessageFormat {
     for (var offset = 0; offset < input.length;) {
       var numBytes = 0;
       var size = 0;
-      var byteRead;
+      var byteRead = 0;
       do {
         byteRead = uint8Array[offset + numBytes];
         size = size | ((byteRead & 0x7f) << (numBitsToShift[numBytes]));
